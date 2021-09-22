@@ -17,7 +17,7 @@ time.sleep(2)
 # Searching for request through location variable
 driver.switch_to.default_content()
 searchbox = driver.find_element_by_id('searchboxinput')
-location = 'Arizona Vegan Restaurants'
+location = '"Connecticut" Medi Spas'
 searchbox.send_keys(location)
 searchbox.send_keys(Keys.ENTER)
 time.sleep(5)
@@ -27,23 +27,27 @@ entities = driver.find_elements_by_class_name('a4gq8e-aVTXAb-haAclf-jRmmHf-hSRGP
 
 # Initiating excel file
 wb = openpyxl.load_workbook("CT_MediSpas.xlsx")
-sheetname = wb.sheetnames
+sheetname = wb.sheetnames_names()
 sheet = wb["Sheet1"]
 
-# Cycling through all 20 entries of Google Maps
-count = 0
-while count <= len(entities) - 1:
-    # Gathering data for excel file
-    if count > 0:
-        print("")
 
+# Counters used in while loop
+count = 0
+page_counter = 0
+flag = True
+# Cycling through all 20 entries of Google Maps
+while flag:
     # Clicking into each company
     try:
         entities[count].click()
         time.sleep(3)
 
-        companyName = driver.find_element_by_class_name('x3AX1-LfntMc-header-title-ij8cu')
-        print(companyName.text)
+        companyName = driver.find_element_by_xpath('//*[@id="pane"]/div/div[1]/div/div/div[2]/div[1]/div[1]')
+        try:
+            sheet.append([companyName.text])
+            print(companyName.text)
+        except IndexError:
+            pass
 
         sections = driver.find_elements_by_class_name('CsEnBe')
 
@@ -51,10 +55,7 @@ while count <= len(entities) - 1:
         for section in sections:
             try:
                 companyInfo = section.get_attribute('aria-label')
-                if companyInfo == "None":  # Try to find solution to get rid of None Values
-                    print("")
-                else:
-                    print(companyInfo)
+                print(companyInfo)
             except NoSuchElementException:
                 companyInfo = "can't find this information"
                 print(companyInfo)
@@ -65,6 +66,38 @@ while count <= len(entities) - 1:
         driver.back()
         time.sleep(3)
 
+    # Displays an Error message if unable to click into company and continues down the list
+    except ElementClickInterceptedException:
+        print("Unable to locate company")
+        pass
+
+    counter = count
+    count += 1
+    if page_counter > 0 or counter == len(entities) - 1:
+        if counter == len(entities) - 1:
+            page_counter += 1
+            count = 0
+        temp = page_counter
+        while temp > 0:
+            next_page = driver.find_element_by_xpath('//*[@id="ppdPk-Ej1Yeb-LgbsSe-tJiF1e"]/img')
+            try:
+                next_page.click()
+                time.sleep(3)
+                temp -= 1
+            except ElementClickInterceptedException:
+                print("")
+                print('Unable to click to next page and therefore, there are no more search results.')
+                temp = 0
+                flag = False
+                pass
+
+        # Scrolling down the company list to have all companies load
+        scrollable_div = driver.find_element_by_xpath('//*[@id="pane"]/div/div[1]/div/div/div[4]/div[1]')
+        driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
+        time.sleep(2)
+        driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
+        time.sleep(3)
+    else:
         # Scrolling down the company list to have all companies load
         scrollable_div = driver.find_element_by_xpath('//*[@id="pane"]/div/div[1]/div/div/div[4]/div[1]')
         driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
@@ -72,13 +105,8 @@ while count <= len(entities) - 1:
         driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
         time.sleep(3)
 
-    # Displays an Error message if unable to click into company and continues down the list
-    except ElementClickInterceptedException:
-        print("Unable to locate company")
-        pass
-
-    count += 1
     entities = driver.find_elements_by_class_name('a4gq8e-aVTXAb-haAclf-jRmmHf-hSRGPd')
+    print("")
 
 # Save to excel sheet
 wb.save("CT_MediSpas.xlsx")
