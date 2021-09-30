@@ -1,20 +1,21 @@
 # Importing all libraries necessary
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import NoSuchElementException, ElementClickInterceptedException
+from selenium.common.exceptions import NoSuchElementException, ElementClickInterceptedException, \
+    ElementNotInteractableException
+from DataSheetOrganizer import parse_data
 import time
-import openpyxl
+import xlsxwriter
 
-# Initiating Google Chrome as Browser
+# Initiating Google Chrome as Browser.
 driver = webdriver.Chrome(r"C:\Users\Owner\WebDriversForPython\chromedriver.exe")
-wait = WebDriverWait(driver, 3)
+driver.implicitly_wait(2)
 
-# Opening Google Maps
+# Opening Google Maps.
 driver.get("https://www.google.com/maps")
-time.sleep(2)
+driver.implicitly_wait(2)
 
-# Searching for request through location variable
+# Looking for search box in google maps and typing in requested information.
 driver.switch_to.default_content()
 searchbox = driver.find_element_by_id('searchboxinput')
 location = '"Connecticut" Medi Spas'
@@ -22,39 +23,53 @@ searchbox.send_keys(location)
 searchbox.send_keys(Keys.ENTER)
 time.sleep(5)
 
-# Adding all companies google links to a list of entities
+# Adding all companies google links to a list of entities.
 entities = driver.find_elements_by_class_name('a4gq8e-aVTXAb-haAclf-jRmmHf-hSRGPd')
 
-# Initiating excel file
-wb = openpyxl.load_workbook("CT_MediSpas.xlsx")
-sheetname = wb.sheetnames_names()
-sheet = wb["Sheet1"]
+# Initiating excel file.
+workbook = xlsxwriter.Workbook("CT_MediSpas.xlsx")
+worksheet = workbook.add_worksheet()
 
-
-# Counters used in while loop
+# Counters used in while loop.
 count = 0
 page_counter = 0
+rows = 1
+column = 0
 flag = True
+
 # Cycling through all 20 entries of Google Maps
 while flag:
+
     # Clicking into each company
     try:
         entities[count].click()
-        time.sleep(3)
+        time.sleep(2)
 
-        companyName = driver.find_element_by_xpath('//*[@id="pane"]/div/div[1]/div/div/div[2]/div[1]/div[1]')
+        # Creating CompanyName WebElement to get name, rating, reviews, and speciality.
+        companyName = driver.find_element_by_class_name('x3AX1-LfntMc-header-title-ij8cu')
+
+        # Attempt to print the WebElement and place it into the first column and then moving to the next column.
         try:
-            sheet.append([companyName.text])
             print(companyName.text)
-        except IndexError:
+            worksheet.write(rows, column, companyName.text)
+            column += 1
+        # If no WebElement exists then we tell console.
+        except (IndexError, NoSuchElementException, ElementClickInterceptedException):
+            companyName = "can't find company name"
+            print(companyName)
             pass
 
+        # Creating a sections WebElement to get address, phone number, health and safety message, website, plus code
+        # and other information that is available for that company.
         sections = driver.find_elements_by_class_name('CsEnBe')
 
-        # Get data from the individual company
+        # Cycling through each data element for the company and placing it in its own column
+        # and then moving to the next.
         for section in sections:
             try:
                 companyInfo = section.get_attribute('aria-label')
+                worksheet.write(rows, column, companyInfo)
+                column += 1
                 print(companyInfo)
             except NoSuchElementException:
                 companyInfo = "can't find this information"
@@ -62,55 +77,78 @@ while flag:
                 print("")
                 break
 
-        # Returning to company list
+        # Resetting the columns and going to the next row for the next company in the list.
+        column = 0
+        rows += 1
+
+        # Returning to the list of companies.
         driver.back()
         time.sleep(3)
 
-    # Displays an Error message if unable to click into company and continues down the list
-    except ElementClickInterceptedException:
-        print("Unable to locate company")
+    # Displays an Error message to console if unable to click into a company and continues down the list.
+    # However, this message will go to console at the very end of the code as there will be no more companies.
+    except (IndexError, NoSuchElementException, ElementClickInterceptedException):
+        print("Error: Unable to locate company")
         pass
 
+    # Counters for the next section.
     counter = count
     count += 1
+
+    # If applicable, will go to the next page(s) on google maps company list.
+    # If the page_counter is more than 0 or we are at the end of the page we will enter this if statement.
     if page_counter > 0 or counter == len(entities) - 1:
+
+        # If we are at the end of the page we will add to page counter and reset the count.
         if counter == len(entities) - 1:
             page_counter += 1
             count = 0
+
+        # Setting temp variable to page_counter and checking if page_counter is greater than 0.
+        # If page_counter is greater than 0 then we create a next_page element for clicking.
         temp = page_counter
         while temp > 0:
             next_page = driver.find_element_by_xpath('//*[@id="ppdPk-Ej1Yeb-LgbsSe-tJiF1e"]/img')
+
+            # Will attempt to click to the next page while page_counter (temp) is greater than 0.
+            # Once page_counter (temp) reaches 0, no more pages will be clicked.
             try:
                 next_page.click()
                 time.sleep(3)
                 temp -= 1
-            except ElementClickInterceptedException:
+            # Will send a message to console that the code is complete if we are unable to click to next page.
+            # A flag is set to false to exit the original while loop.
+            except (NoSuchElementException, ElementClickInterceptedException, ElementNotInteractableException):
                 print("")
                 print('Unable to click to next page and therefore, there are no more search results.')
                 temp = 0
                 flag = False
                 pass
 
-        # Scrolling down the company list to have all companies load
+        # Scrolling down the company list at the end of next page clicking to have all companies load.
         scrollable_div = driver.find_element_by_xpath('//*[@id="pane"]/div/div[1]/div/div/div[4]/div[1]')
         driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
-        time.sleep(2)
+        time.sleep(3)
         driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
         time.sleep(3)
     else:
-        # Scrolling down the company list to have all companies load
+        # Scrolling down the company list to have all companies load without going to the next page(s).
         scrollable_div = driver.find_element_by_xpath('//*[@id="pane"]/div/div[1]/div/div/div[4]/div[1]')
         driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
         time.sleep(2)
         driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
-        time.sleep(3)
+        time.sleep(2)
 
+    # Reinstating the driver of the google company list to call the next company.
     entities = driver.find_elements_by_class_name('a4gq8e-aVTXAb-haAclf-jRmmHf-hSRGPd')
     print("")
 
-# Save to excel sheet
-wb.save("CT_MediSpas.xlsx")
-
-# Close Browser
+# Closing Browser
 time.sleep(3)
 driver.close()
+
+# Save to excel sheet
+workbook.close()
+
+# Calling method in DataSheetOrganizer to organizer the scraped data
+parse_data()
