@@ -1,74 +1,177 @@
 # Importing all libraries necessary
-import pandas as pd
-import re
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import NoSuchElementException, ElementClickInterceptedException, \
+    ElementNotInteractableException
+from DataSheetOrganizer import parse_data
+import time
+import xlsxwriter
 
 
-# A method that cleans and organizes data scraped from google maps.
-def parse_data():
-    # Entrance message to console.
-    # Placing Excel information from GMapScraper into a data frame object.
-    print('Data organization started')
-    data_frame = pd.read_excel("CT_MediSpas.xlsx")
+# Scrolling down the company list to load all the companies.
+def scrolling(num):
+    while num > 0:
+        try:
+            scrollable_div = driver.find_element_by_xpath('//*[@id="pane"]/div/div[1]/div/div/div[4]/div[1]')
+            driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
+            time.sleep(2)
+            num -= 1
+        except NoSuchElementException:
+            print("Error: can't find scrollbar")
+            print("")
+            break
+    return num
 
-    # A dictionary array created to hold the data being changed.
-    rows_dict_list = []
 
-    # For loop created to cycle through each row of data within data excel sheet.
-    for i in range(0, len(data_frame)):
+# Initiating Google Chrome as Browser in incognito mode.
+chrome_option = webdriver.ChromeOptions()
+chrome_option.add_argument('--incognito')
+driver = webdriver.Chrome(r"C:\Users\Owner\WebDriversForPython\chromedriver.exe", options=chrome_option)
+driver.implicitly_wait(2)
 
-        # Going through 1 row at a time with all columns.
-        # Joining each cell of the row into one string but separating with a '|'.
-        # Replacing values with | values for separation later.
-        row = data_frame.loc[i, :]
-        row = '|'.join(row[row.notnull()].astype(str))
-        row = (row
-               .replace('@', '|Address:')
-               .replace('\n', '|col1: ', 1)
-               .replace('\n', '|col2: ', 1)
-               .replace('\n', '|col3: ', 1))
+# Opening Google Maps.
+driver.get("https://www.google.com/maps")
+driver.implicitly_wait(2)
 
-        # Splitting the string based off any value with | some words and a colon with a space.
-        txt = re.split(pattern='[|][a-zA-Z0-9&\s]+[:][\s]', string=row)
+# Looking for search box in google maps and typing in requested information.
+driver.switch_to.default_content()
+searchbox = driver.find_element_by_id('searchboxinput')
+location = '"Connecticut" Medi Spas'
+searchbox.send_keys(location)
+searchbox.send_keys(Keys.ENTER)
+time.sleep(5)
 
-        # The values that were parsed are taken into a list.
-        cols_tmp = re.findall(pattern='[|][a-zA-Z0-9&\s]+[:][\s]', string=row)
+# Adding all companies google links to a list of entities.
+entities = driver.find_elements_by_class_name('a4gq8e-aVTXAb-haAclf-jRmmHf-hSRGPd')
 
-        # Replacing values with nothing and removing any unnecessary spaces.
-        cols_tmp = [col.replace(':', '').replace('|', '').rstrip(' ') for col in cols_tmp]
+# Initiating excel file.
+workbook = xlsxwriter.Workbook("CT_MediSpas.xlsx")
+worksheet = workbook.add_worksheet()
 
-        # Creating column headers based on the cols_tmp entries.
-        cols = ['Name']
-        cols.extend(cols_tmp)
+# Counters used in while loop.
+count = 0
+page_counter = 0
+rows = 1
+column = 0
+scroll_num = 2
+flag = True
 
-        dictionary = dict(zip(cols, txt))
+# Cycling through all 20 entries of Google Maps
+while flag:
 
-        # Creating keys for Rating, Reviews and Speciality
-        values = [dictionary.get('col1'), dictionary.get('col2'), dictionary.get('col3')]
-        patterns = ['[0-9\.]+$', '[0-9]+[a-zA-Z\s]*$', '[a-zA-Z\s]+$']
-        keys = ['Rating', 'Reviews', 'Speciality']
+    # Cycling through each data element for the company and placing it in its own column
+    # and then moving to the next.
+    try:
+        maps = driver.find_elements_by_class_name('a4gq8e-aVTXAb-haAclf-jRmmHf-hSRGPd')[count]
+        g_map = maps.get_attribute('href')
+        worksheet.write(rows, column, g_map)
+        column += 1
+        print(g_map)
+    except (NoSuchElementException, IndexError):
+        g_map = "can't find this information"
+        print(g_map)
+        print("")
+        break
 
-        # Replacing dictionary values col1, col2, col3 with the keys.
-        for j in [0, 1, 2]:  # Values
-            for k in [0, 1, 2]:  # Patterns, Keys
-                if values[j] is None:
-                    break
-                else:
-                    match = re.search(pattern=patterns[k], string=values[j])
+    # Clicking into each company
+    try:
+        entities[count].click()
+        time.sleep(2)
 
-                    if match is not None:
-                        old_key = 'col' + str(j + 1)
-                        dictionary[keys[k]] = dictionary.pop(old_key)
-                        break
+        # Creating CompanyName WebElement to get name, rating, reviews, and speciality.
+        companyName = driver.find_element_by_class_name('x3AX1-LfntMc-header-title-ij8cu')
 
-        # Appending the new keys and values in the key headers to rows_dict_list
-        rows_dict_list.append(dictionary)
+        # Attempt to print the WebElement and place it into the first column and then moving to the next column.
+        try:
+            print(companyName.text)
+            worksheet.write(rows, column, companyName.text)
+            column += 1
+        # If no WebElement exists then we tell console.
+        except (IndexError, NoSuchElementException, ElementClickInterceptedException):
+            companyName = "can't find company name"
+            print(companyName)
+            pass
 
-    # Adding the updated data frame to a new data frame object.
-    # Saving that new data frame to the same Excel file.
-    # Exit message to console.
-    data_frame_new = pd.DataFrame(rows_dict_list)
-    data_frame_new.to_excel('CT_MediSpas.xlsx', index=False)
-    print('Data organization completed')
+        # Creating a sections WebElement to get address, phone number, health and safety message, website, plus code
+        # and other information that is available for that company.
+        sections = driver.find_elements_by_class_name('CsEnBe')
 
-    # Not necessary at the moment but returning the new data frame object.
-    return data_frame_new
+        # Cycling through each data element for the company and placing it in its own column
+        # and then moving to the next.
+        for section in sections:
+            try:
+                companyInfo = section.get_attribute('aria-label')
+                worksheet.write(rows, column, companyInfo)
+                column += 1
+                print(companyInfo)
+            except NoSuchElementException:
+                companyInfo = "Can't find this information"
+                print(companyInfo)
+                print("")
+                pass
+
+        # Resetting the columns and going to the next row for the next company in the list.
+        column = 0
+        rows += 1
+
+        # Returning to the list of companies.
+        driver.back()
+        time.sleep(3)
+
+    # Displays an Error message to console if unable to click into a company and continues down the list.
+    # However, this message will go to console at the very end of the code as there will be no more companies.
+    except (IndexError, NoSuchElementException, ElementClickInterceptedException):
+        print("Error: Unable to locate company")
+        pass
+
+    # Counters for the next section.
+    counter = count
+    count += 1
+
+    # If applicable, will go to the next page(s) on google maps company list.
+    # If the page_counter is more than 0 or we are at the end of the page we will enter this if statement.
+    if page_counter > 0 or counter == len(entities) - 1:
+
+        # If we are at the end of the page we will add to page counter and reset the count.
+        if counter == len(entities) - 1:
+            page_counter += 1
+            count = 0
+
+        # Setting temp variable to page_counter and checking if page_counter is greater than 0.
+        # If page_counter is greater than 0 then we create a next_page element for clicking.
+        temp = page_counter
+        while temp > 0:
+            # Will attempt to click to the next page while page_counter (temp) is greater than 0.
+            # Once page_counter (temp) reaches 0, no more pages will be clicked.
+            try:
+                next_page = driver.find_element_by_xpath('//*[@id="ppdPk-Ej1Yeb-LgbsSe-tJiF1e"]/img')
+                next_page.click()
+                time.sleep(3)
+                temp -= 1
+            # Will send a message to console that the code is complete if we are unable to click to next page.
+            # A flag is set to false to exit the original while loop.
+            except (NoSuchElementException, ElementClickInterceptedException, ElementNotInteractableException):
+                print("")
+                print('Unable to click to next page and therefore, there are no more search results.')
+                temp = 0
+                flag = False
+                pass
+        scrolling(scroll_num)
+        scroll_num = 3
+    else:
+        # Calling method to scroll down google page to load every company in list.
+        scrolling(scroll_num)
+
+    # Reinstating the driver of the google company list to call the next company.
+    entities = driver.find_elements_by_class_name('a4gq8e-aVTXAb-haAclf-jRmmHf-hSRGPd')
+    print("")
+
+# Closing Browser
+time.sleep(3)
+driver.close()
+
+# Save to excel sheet
+workbook.close()
+
+# Calling method in DataSheetOrganizer to organizer the scraped data
+parse_data()
