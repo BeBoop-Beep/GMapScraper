@@ -7,8 +7,26 @@ from DataSheetOrganizer import parse_data
 import time
 import xlsxwriter
 
-# Initiating Google Chrome as Browser.
-driver = webdriver.Chrome(r"C:\Users\Owner\WebDriversForPython\chromedriver.exe")
+
+# Scrolling down the company list to load all the companies.
+def scrolling(num):
+    while num > 0:
+        try:
+            scrollable_div = driver.find_element_by_xpath('//*[@id="pane"]/div/div[1]/div/div/div[4]/div[1]')
+            driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
+            time.sleep(2)
+            num -= 1
+        except NoSuchElementException:
+            print("Error: can't find scrollbar")
+            print("")
+            break
+    return num
+
+
+# Initiating Google Chrome as Browser in incognito mode.
+chrome_option = webdriver.ChromeOptions()
+chrome_option.add_argument('--incognito')
+driver = webdriver.Chrome(r"C:\Users\Owner\WebDriversForPython\chromedriver.exe", options=chrome_option)
 driver.implicitly_wait(2)
 
 # Opening Google Maps.
@@ -35,10 +53,25 @@ count = 0
 page_counter = 0
 rows = 1
 column = 0
+scroll_num = 2
 flag = True
 
 # Cycling through all 20 entries of Google Maps
 while flag:
+
+    # Cycling through each data element for the company and placing it in its own column
+    # and then moving to the next.
+    try:
+        maps = driver.find_elements_by_class_name('a4gq8e-aVTXAb-haAclf-jRmmHf-hSRGPd')[count]
+        g_map = maps.get_attribute('href')
+        worksheet.write(rows, column, g_map)
+        column += 1
+        print(g_map)
+    except (NoSuchElementException, IndexError):
+        g_map = "can't find this information"
+        print(g_map)
+        print("")
+        break
 
     # Clicking into each company
     try:
@@ -108,11 +141,10 @@ while flag:
         # If page_counter is greater than 0 then we create a next_page element for clicking.
         temp = page_counter
         while temp > 0:
-            next_page = driver.find_element_by_xpath('//*[@id="ppdPk-Ej1Yeb-LgbsSe-tJiF1e"]/img')
-
             # Will attempt to click to the next page while page_counter (temp) is greater than 0.
             # Once page_counter (temp) reaches 0, no more pages will be clicked.
             try:
+                next_page = driver.find_element_by_xpath('//*[@id="ppdPk-Ej1Yeb-LgbsSe-tJiF1e"]/img')
                 next_page.click()
                 time.sleep(3)
                 temp -= 1
@@ -125,19 +157,17 @@ while flag:
                 flag = False
                 pass
 
-        # Scrolling down the company list at the end of next page clicking to have all companies load.
-        scrollable_div = driver.find_element_by_xpath('//*[@id="pane"]/div/div[1]/div/div/div[4]/div[1]')
-        driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
-        time.sleep(3)
-        driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
-        time.sleep(3)
+        # Calling method to scroll down google page to load every company in list.
+        scrolling(scroll_num)
+        scroll_num = 3
+        
+        # Added extra delay to make sure all pages render.
+        if page_counter >= 3:
+            time.sleep(2)
+
     else:
-        # Scrolling down the company list to have all companies load without going to the next page(s).
-        scrollable_div = driver.find_element_by_xpath('//*[@id="pane"]/div/div[1]/div/div/div[4]/div[1]')
-        driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
-        time.sleep(2)
-        driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
-        time.sleep(2)
+        # Calling method to scroll down google page to load every company in list.
+        scrolling(scroll_num)
 
     # Reinstating the driver of the google company list to call the next company.
     entities = driver.find_elements_by_class_name('a4gq8e-aVTXAb-haAclf-jRmmHf-hSRGPd')
