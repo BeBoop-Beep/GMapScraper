@@ -105,10 +105,10 @@ while flag:
                 column += 1
                 print(companyInfo)
             except NoSuchElementException:
-                companyInfo = "can't find this information"
+                companyInfo = "Can't find this information"
                 print(companyInfo)
                 print("")
-                break
+                pass
 
         # Resetting the columns and going to the next row for the next company in the list.
         column = 0
@@ -156,15 +156,8 @@ while flag:
                 temp = 0
                 flag = False
                 pass
-
-        # Calling method to scroll down google page to load every company in list.
         scrolling(scroll_num)
         scroll_num = 3
-        
-        # Added extra delay to make sure all pages render.
-        if page_counter >= 3:
-            time.sleep(2)
-
     else:
         # Calling method to scroll down google page to load every company in list.
         scrolling(scroll_num)
