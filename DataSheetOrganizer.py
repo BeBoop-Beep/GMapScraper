@@ -1,177 +1,170 @@
 # Importing all libraries necessary
-from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import NoSuchElementException, ElementClickInterceptedException, \
-    ElementNotInteractableException
-from DataSheetOrganizer import parse_data
-import time
-import xlsxwriter
+import pandas as pd
+import re
+import numpy as np
+
+# Global variables required for comparisons outside of parse_data() method.
+domain_formatted = '^[w]{3}[.].+[.][a-zA-Z-]+'
+phone_formatted = '^[2-9][0-9]{2}[-][0-9]{3}[-][0-9]{4}'
+phone_10d = '^[2-9][0-9]{9}'
 
 
-# Scrolling down the company list to load all the companies.
-def scrolling(num):
-    while num > 0:
-        try:
-            scrollable_div = driver.find_element_by_xpath('//*[@id="pane"]/div/div[1]/div/div/div[4]/div[1]')
-            driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', scrollable_div)
-            time.sleep(2)
-            num -= 1
-        except NoSuchElementException:
-            print("Error: can't find scrollbar")
-            print("")
-            break
-    return num
+# Removing any left over data after that is after any '|' in data frame.
+def split_function(value):
+    val = value.split(sep='|', maxsplit=1)[0]
+    return val
 
 
-# Initiating Google Chrome as Browser in incognito mode.
-chrome_option = webdriver.ChromeOptions()
-chrome_option.add_argument('--incognito')
-driver = webdriver.Chrome(r"C:\Users\Owner\WebDriversForPython\chromedriver.exe", options=chrome_option)
-driver.implicitly_wait(2)
+# Method used to attach www. to website names
+def format_domain(domain):
+    # Checking to see if the string domain matches the global pattern.
+    match_domain_formatted = re.search(pattern=domain_formatted, string=domain)
 
-# Opening Google Maps.
-driver.get("https://www.google.com/maps")
-driver.implicitly_wait(2)
+    # If there was not a match, we change the website to the right format.
+    if match_domain_formatted is None:
+        # Not formatted (www.)
+        domain = 'www.' + domain
 
-# Looking for search box in google maps and typing in requested information.
-driver.switch_to.default_content()
-searchbox = driver.find_element_by_id('searchboxinput')
-location = '"Connecticut" Medi Spas'
-searchbox.send_keys(location)
-searchbox.send_keys(Keys.ENTER)
-time.sleep(5)
+    return domain
 
-# Adding all companies google links to a list of entities.
-entities = driver.find_elements_by_class_name('a4gq8e-aVTXAb-haAclf-jRmmHf-hSRGPd')
 
-# Initiating excel file.
-workbook = xlsxwriter.Workbook("CT_MediSpas.xlsx")
-worksheet = workbook.add_worksheet()
+# Method used to reformat phone number to 000-000-0000.
+def format_phone(phone):
+    # Creating an element for the match of phone and proper format (phone_formatted).
+    phone = str(phone)
+    match_phone_formatted = re.search(pattern=phone_formatted, string=phone)
 
-# Counters used in while loop.
-count = 0
-page_counter = 0
-rows = 1
-column = 0
-scroll_num = 2
-flag = True
+    # If the phone number is not in proper format then we enter if statement.
+    if match_phone_formatted is None:
+        # Creating a string of digits that only holds digits and no other elements.
+        # Create match_10d element to see if the phone number has 10 digits in phone number.
+        digits = str(''.join(c for c in phone if c.isdigit()))
+        digits = digits.lstrip('0').lstrip('1')
+        match_10d = re.search(pattern=phone_10d, string=digits)
 
-# Cycling through all 20 entries of Google Maps
-while flag:
+        # Invalid phone number , not matching 10 valid digits.
+        if match_10d is None:
+            return None
 
-    # Cycling through each data element for the company and placing it in its own column
-    # and then moving to the next.
-    try:
-        maps = driver.find_elements_by_class_name('a4gq8e-aVTXAb-haAclf-jRmmHf-hSRGPd')[count]
-        g_map = maps.get_attribute('href')
-        worksheet.write(rows, column, g_map)
-        column += 1
-        print(g_map)
-    except (NoSuchElementException, IndexError):
-        g_map = "can't find this information"
-        print(g_map)
-        print("")
-        break
+        # Valid phone number and puts in proper format.
+        else:
+            digits = digits[0:3] + '-' + digits[3:6] + '-' + digits[6:10]
+            return digits
 
-    # Clicking into each company
-    try:
-        entities[count].click()
-        time.sleep(2)
-
-        # Creating CompanyName WebElement to get name, rating, reviews, and speciality.
-        companyName = driver.find_element_by_class_name('x3AX1-LfntMc-header-title-ij8cu')
-
-        # Attempt to print the WebElement and place it into the first column and then moving to the next column.
-        try:
-            print(companyName.text)
-            worksheet.write(rows, column, companyName.text)
-            column += 1
-        # If no WebElement exists then we tell console.
-        except (IndexError, NoSuchElementException, ElementClickInterceptedException):
-            companyName = "can't find company name"
-            print(companyName)
-            pass
-
-        # Creating a sections WebElement to get address, phone number, health and safety message, website, plus code
-        # and other information that is available for that company.
-        sections = driver.find_elements_by_class_name('CsEnBe')
-
-        # Cycling through each data element for the company and placing it in its own column
-        # and then moving to the next.
-        for section in sections:
-            try:
-                companyInfo = section.get_attribute('aria-label')
-                worksheet.write(rows, column, companyInfo)
-                column += 1
-                print(companyInfo)
-            except NoSuchElementException:
-                companyInfo = "Can't find this information"
-                print(companyInfo)
-                print("")
-                pass
-
-        # Resetting the columns and going to the next row for the next company in the list.
-        column = 0
-        rows += 1
-
-        # Returning to the list of companies.
-        driver.back()
-        time.sleep(3)
-
-    # Displays an Error message to console if unable to click into a company and continues down the list.
-    # However, this message will go to console at the very end of the code as there will be no more companies.
-    except (IndexError, NoSuchElementException, ElementClickInterceptedException):
-        print("Error: Unable to locate company")
-        pass
-
-    # Counters for the next section.
-    counter = count
-    count += 1
-
-    # If applicable, will go to the next page(s) on google maps company list.
-    # If the page_counter is more than 0 or we are at the end of the page we will enter this if statement.
-    if page_counter > 0 or counter == len(entities) - 1:
-
-        # If we are at the end of the page we will add to page counter and reset the count.
-        if counter == len(entities) - 1:
-            page_counter += 1
-            count = 0
-
-        # Setting temp variable to page_counter and checking if page_counter is greater than 0.
-        # If page_counter is greater than 0 then we create a next_page element for clicking.
-        temp = page_counter
-        while temp > 0:
-            # Will attempt to click to the next page while page_counter (temp) is greater than 0.
-            # Once page_counter (temp) reaches 0, no more pages will be clicked.
-            try:
-                next_page = driver.find_element_by_xpath('//*[@id="ppdPk-Ej1Yeb-LgbsSe-tJiF1e"]/img')
-                next_page.click()
-                time.sleep(3)
-                temp -= 1
-            # Will send a message to console that the code is complete if we are unable to click to next page.
-            # A flag is set to false to exit the original while loop.
-            except (NoSuchElementException, ElementClickInterceptedException, ElementNotInteractableException):
-                print("")
-                print('Unable to click to next page and therefore, there are no more search results.')
-                temp = 0
-                flag = False
-                pass
-        scrolling(scroll_num)
-        scroll_num = 3
+    # Phone number already in right format, no changes required.
     else:
-        # Calling method to scroll down google page to load every company in list.
-        scrolling(scroll_num)
+        return phone
 
-    # Reinstating the driver of the google company list to call the next company.
-    entities = driver.find_elements_by_class_name('a4gq8e-aVTXAb-haAclf-jRmmHf-hSRGPd')
-    print("")
 
-# Closing Browser
-time.sleep(3)
-driver.close()
+# A method that cleans and organizes data scraped from google maps.
+def parse_data():
+    # Entrance message to console.
+    # Placing Excel information from GMapScraper into a data frame object.
+    print('Data organization started')
+    data_frame = pd.read_excel("CT_MediSpas.xlsx")
 
-# Save to excel sheet
-workbook.close()
+    # A dictionary array created to hold the data being changed.
+    rows_dict_list = []
 
-# Calling method in DataSheetOrganizer to organizer the scraped data
-parse_data()
+    # For loop created to cycle through each row of data within data excel sheet.
+    for i in range(0, len(data_frame)):
+
+        # Going through 1 row at a time with all columns.
+        # Joining each cell of the row into one string but separating with a '|'.
+        # Replacing values with | values for easier separation later.
+        row = data_frame.loc[i, :]
+        row = '|'.join(row[row.notnull()].astype(str))
+
+        # Changing values to make it easier to separate later.
+        row = (row
+               .replace('|', '|Name: ', 1)
+               .replace('@', '|Address:')
+               .replace('\n', '|col1: ', 1)
+               .replace('\n', '|col2: ', 1)
+               .replace('\n', '|col3: ', 1))
+
+        # Splitting the string based off any value with | some words and a colon with a space.
+        txt = re.split(pattern='[|][a-zA-Z0-9&\s]+[:][\s]', string=row)
+
+        # The values that were parsed are taken into a list.
+        cols_tmp = re.findall(pattern='[|][a-zA-Z0-9&\s]+[:][\s]', string=row)
+
+        # Replacing values with nothing and removing any unnecessary spaces.
+        cols_tmp = [col.replace(':', '').replace('|', '').rstrip(' ') for col in cols_tmp]
+
+        # Creating column headers based on the cols_tmp entries.
+        cols = ['google_maps_url']
+        cols.extend(cols_tmp)
+
+        # Mapping Column names to column data
+        dictionary = dict(zip(cols, txt))
+
+        # Creating keys for Rating, Reviews and Speciality
+        values = [dictionary.get('col1'), dictionary.get('col2'), dictionary.get('col3')]
+        patterns = ['[0-9\.]+$', '[0-9]+[a-zA-Z\s]*$', '[a-zA-Z\s]+$']
+        keys = ['Rating', 'Reviews', 'Speciality']
+
+        # Replacing dictionary values col1, col2, col3 and placing them in their respected keys.
+        for j in [0, 1, 2]:  # Values
+            for k in [0, 1, 2]:  # Patterns, Keys
+                if values[j] is None:
+                    break
+                else:
+                    match = re.search(pattern=patterns[k], string=values[j])
+
+                    if match is not None:
+                        old_key = 'col' + str(j + 1)
+                        dictionary[keys[k]] = dictionary.pop(old_key)
+                        break
+
+        # Appending the new keys and values in the key headers to rows_dict_list
+        rows_dict_list.append(dictionary)
+
+    # Adding the updated data frame to a new data frame object.
+    data_frame_new = pd.DataFrame(rows_dict_list)
+
+    # Creating Phone, Address, and Website variables.
+    ph = data_frame_new.Phone
+    ad = data_frame_new.Address
+    dm = data_frame_new.Website
+
+    # Removing any unneeded, excess data in all rows from Phone and Address columns.
+    data_frame_new.loc[:, 'Phone'] = ph[ph.notnull()].apply(split_function)
+    data_frame_new.loc[:, 'Address'] = ad[ad.notnull()].apply(split_function)
+
+    # Filter and format not null domains.
+    data_frame_new['Website'] = dm[~dm.isna()].apply(format_domain)
+
+    # Array created to sort websites later.
+    inv_dom_exts = ['gov', 'org', 'edu']
+
+    # Splitting domain name extensions and telling console how many different domain types there are.
+    domain_names = data_frame_new.Website.str.rsplit(pat='.', n=1, expand=True)[[1]][1]
+    print('\nDistribution of domain name extensions:')
+    print(domain_names.value_counts().to_string())
+
+    # Removing any of the invalid domain types and its corresponding data from data frame (the entire row).
+    val_dom_rows = np.invert([x in inv_dom_exts for x in domain_names])
+    l1 = len(data_frame)
+    data_frame_new = data_frame_new[val_dom_rows].copy()
+    l2 = len(data_frame_new)
+
+    # Telling console how many rows were removed
+    print('\nRemoved ' + str(l1 - l2) + ' row(s) for invalid domains.')
+
+    # Calling method to reformat Phone numbers in Phone column of the new data frame.
+    data_frame_new['Phone'] = ph[~ph.isna()].apply(format_phone)
+
+    # Resetting the data frame indexes after cleaning/removal of certain indexes.
+    data_frame_new.reset_index(drop=True, inplace=True)
+
+    # Removing all unnecessary data columns before saving the data frame to the excel sheet.
+    data_frame_new.drop(columns=['Health & safety', 'Plus code', 'Located in', 'Warning', 'Open now'], inplace=True)
+
+    # Saving that new data frame to the same Excel file.
+    # Exit message to console.
+    data_frame_new.to_excel('CT_MediSpas.xlsx', index=False)
+    print('Data organization completed')
+
+    # Not necessary at the moment but returning the new data frame object.
+    return data_frame_new
