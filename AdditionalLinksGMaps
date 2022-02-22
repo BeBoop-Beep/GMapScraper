@@ -155,10 +155,13 @@ def google_tag(data):
 
 
 # A call that starts the addition link process through an object method.
-def get_all_links() -> object:
+def get_all_links(companyInfo) -> object:
+    wb = openpyxl.Workbook()
+    wb.save('ScrapedData/' + companyInfo + '.xlsx')
+
     print("Getting additional links for companies")
     # upload file to colab "files"
-    df = pd.read_excel("AZ_MediSpas_GMAPs Code.xlsx")
+    df = pd.read_excel('ScrapedData/' + companyInfo + '-tmp2.xlsx')
     df.index = np.arange(1, len(df) + 1)
 
     # Creating http urls from website column for click-able access.
@@ -186,12 +189,8 @@ def get_all_links() -> object:
     del df['domain_new']
 
     # Saving the updated data frame to the same excel sheet and printing to console.
-    df.to_excel('AZ_MediSpas_GMAPs Code.xlsx', index=False)
+    df.to_excel('ScrapedData/' + companyInfo + '.xlsx', index=False)
     print('Gather additional link data completed')
 
     # Return value of True.
     return True
-
-
-# Call to first method to start process.
-get_all_links()
