@@ -1,0 +1,123 @@
+import tkinter as tk
+from PIL import Image, ImageTk
+from GMapScraper import gMaps
+from DataSheetOrganizer import parse_data
+from ObtainingLinks import get_all_links
+
+
+def click1():
+    state = entrybox1.get()
+    stateInfo.set("DONE")
+    global companyInfo
+    companyInfo = state
+
+
+def click2():
+    speciality = entrybox2.get()
+    specialityInfo.set("DONE")
+    global companyInfo
+    companyInfo = companyInfo + ' ' + speciality
+
+
+def goToGMapScraper():
+    gMaps(companyInfo)
+    maps.set("Processed")
+
+
+def goToDataCleasner():
+    parse_data(companyInfo)
+    cleanser.set("Processed")
+
+
+def goToAdditionalLinks():
+    get_all_links(companyInfo)
+    links.set("Processed")
+
+
+def resetCode():
+    stateInfo.set("SUBMIT")
+    specialityInfo.set("SUBMIT")
+    maps.set("GO")
+    cleanser.set("GO")
+    links.set("GO")
+    global companyInfo
+    companyInfo = ''
+
+
+def exitCode():
+    window.destroy()
+    exit()
+
+
+if __name__ == '__main__':
+    window = tk.Tk()
+    window.title("Dynamic Physician Group Data Web Scraper")
+    window.geometry('+%d+%d' % (1000, 250))
+    canvas = tk.Canvas(window, width=500, height=600)
+    canvas.grid(columnspan=4, rowspan=8)
+
+    # logo
+    logo = Image.open('GMapLogo.png')
+    logo = ImageTk.PhotoImage(logo)
+    logo_label = tk.Label(image=logo, bg='gray')
+    logo_label.image = logo
+    logo_label.grid(columnspan=4, column=0, row=0)
+
+    # Questions to user
+    instruct1 = tk.Label(window, text="What state are you wanting your search in?", font="Arial")
+    instruct1.grid(columnspan=2, column=0, row=1, sticky=tk.W)
+
+    entrybox1 = tk.Entry(window, width=20, bg="white")
+    entrybox1.grid(columnspan=1, column=2, row=1, sticky=tk.W)
+
+    stateInfo = tk.StringVar()
+    stateInfoBtn = tk.Button(window, textvariable=stateInfo, width=6, command=lambda: click1(), bg="#ffae42").grid(
+        column=3, row=1)
+    stateInfo.set("SUBMIT")
+
+    instruct2 = tk.Label(window, text="What speciality are you searching for?", font="Arial")
+    instruct2.grid(columnspan=2, column=0, row=2, sticky=tk.W)
+
+    entrybox2 = tk.Entry(window, width=20, bg="white")
+    entrybox2.grid(columnspan=1, column=2, row=2, sticky=tk.W)
+
+    specialityInfo = tk.StringVar()
+    specialityInfoBtn = tk.Button(window, textvariable=specialityInfo, width=6, command=lambda: click2(),
+                                  bg="#ffae42").grid(column=3, row=2)
+    specialityInfo.set("SUBMIT")
+
+    instruct3 = tk.Label(window, text="Please go in the order it is written:", font="Arial")
+    instruct3.grid(columnspan=2, column=1, row=3, sticky=tk.W)
+    instruct4 = tk.Label(window, text="1.Scrape GMaps", font="Arial")
+    instruct4.grid(columnspan=1, column=1, row=4, sticky=tk.W)
+    instruct5 = tk.Label(window, text="2.Cleanse Data", font="Arial")
+    instruct5.grid(columnspan=1, column=1, row=5, sticky=tk.W)
+    instruct6 = tk.Label(window, text="3.Additional Links", font="Arial")
+    instruct6.grid(columnspan=1, column=1, row=6, sticky=tk.W)
+
+    maps = tk.StringVar()
+    cleanser = tk.StringVar()
+    links = tk.StringVar()
+    resetter = tk.StringVar()
+
+    maps_btn = tk.Button(window, textvariable=maps, width=10, command=lambda: goToGMapScraper(), bg="#90ee90").grid(
+        column=2, row=4)
+    maps.set("GO")
+
+    cleanser_btn = tk.Button(window, textvariable=cleanser, width=10, command=lambda: goToDataCleasner(),
+                             bg="#90ee90").grid(column=2, row=5)
+    cleanser.set("GO")
+
+    links_btn = tk.Button(window, textvariable=links, width=10, command=lambda: goToAdditionalLinks(),
+                          bg="#90ee90").grid(
+        column=2, row=6)
+    links.set("GO")
+
+    resetter_btn = tk.Button(window, textvariable=resetter, width=12, command=lambda: resetCode(), bg="#add8e6").grid(columnspan=1, column=1, row=7)
+
+    resetter.set("RESET")
+
+    tk.Button(window, text="EXIT", width=12, command=exitCode, bg="#E9967A").grid(columnspan=2, column=2, row=7,
+                                                                                  sticky=tk.W)
+
+    window.mainloop()
