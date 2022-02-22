@@ -3,14 +3,12 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException, ElementClickInterceptedException, \
     ElementNotInteractableException
-# from DataSheetOrganizer import parse_data
 import time
 import multiprocessing
 import xlsxwriter
 import openpyxl
 import pandas as pd
 import numpy as np
-from DataSheetOrganizer import parse_data
 
 
 # Scrolling down the company list to load all the companies.
@@ -28,7 +26,7 @@ def scrolling(num, driver):
     return num
 
 
-def gMapScraper(page_counter, companyStringList):
+def gMapScraper(companyInfo, page_counter, companyStringList):
     # Initiating Google Chrome as Browser in incognito mode.
     chrome_option = webdriver.ChromeOptions()
     chrome_option.add_argument('--incognito')
@@ -43,7 +41,7 @@ def gMapScraper(page_counter, companyStringList):
     # Looking for search box in google maps and typing in requested information.
     driver.switch_to.default_content()
     searchbox = driver.find_element_by_id('searchboxinput')
-    location = '"Arizona" Medi Spas'
+    location = companyInfo
     searchbox.send_keys(location)
     searchbox.send_keys(Keys.ENTER)
     time.sleep(5)
@@ -62,7 +60,7 @@ def gMapScraper(page_counter, companyStringList):
 
         counter = count
         # If applicable, will go to the next page(s) on google maps company list.
-        # If the page_counter is more than 0 or we are at the end of the page we will enter this if statement.
+        # If the page_counter is more than 0 and it is the first time opening website will enter if statement.
         if page_counter > 0 and firstScroll:
 
             # Setting temp variable to page_counter and checking if page_counter is greater than 0.
@@ -88,7 +86,6 @@ def gMapScraper(page_counter, companyStringList):
             # Scrolling down the company list to load all the companies.
             scrolling(scroll_num, driver)
             scroll_num = 3
-
         else:
             scrolling(scroll_num, driver)
 
@@ -106,6 +103,7 @@ def gMapScraper(page_counter, companyStringList):
             print("")
             break
 
+        backEle = False
         # Clicking into each company
         try:
             entities[count].click()
@@ -141,13 +139,20 @@ def gMapScraper(page_counter, companyStringList):
                     pass
 
             # Returning to the list of companies.
-            driver.back()
-            time.sleep(3)
+            try:
+                clickBack = driver.find_element_by_class_name("xoLGzf-icon")
+                clickBack.click()
+                time.sleep(3)
+            except NoSuchElementException:
+                driver.back()
+                time.sleep(3)
+                if page_counter > 0:
+                    backEle = True
 
         # Displays an Error message to console if unable to click into a company and continues down the list.
         # However, this message will go to console at the very end of the code as there will be no more companies.
         except (IndexError, NoSuchElementException, ElementClickInterceptedException):
-            print("Error: Unable to locate company")
+            print("Error: Unable to locate company, if you see multiple stop code and run again!")
             pass
 
         # Joining elements of list into a string
@@ -163,7 +168,7 @@ def gMapScraper(page_counter, companyStringList):
         count += 1
         # If applicable, will go to the next page(s) on google maps company list.
         # If the page_counter is more than 0 or we are at the end of the page we will enter this if statement.
-        if page_counter > 0 or counter == len(entities) - 1:
+        if backEle or counter == len(entities) - 1:
 
             # If we are at the end of the page we will add to page counter and reset the count.
             if counter == len(entities) - 1:
@@ -193,7 +198,6 @@ def gMapScraper(page_counter, companyStringList):
             # Scrolling down the company list to load all the companies.
             scrolling(scroll_num, driver)
             scroll_num = 3
-
         else:
             # Calling method to scroll down google page to load every company in list.
             scrolling(scroll_num, driver)
@@ -207,7 +211,10 @@ def gMapScraper(page_counter, companyStringList):
     driver.close()
 
 
-if __name__ == '__main__':
+def gMaps(companyInfo):
+    wb = openpyxl.Workbook()
+    wb.save('ScrapedData/' + companyInfo + '-tmp1.xlsx')
+
     startingPage = 0
     processes = []
 
@@ -218,7 +225,7 @@ if __name__ == '__main__':
     # Code for creating the multiprocess process and calls each process to gMapScraper().
     # Gives each process it's own starting page.
     for _ in range(5):
-        p = multiprocessing.Process(target=gMapScraper, args=[startingPage, companyStringList])
+        p = multiprocessing.Process(target=gMapScraper, args=[companyInfo, startingPage, companyStringList])
         startingPage += 1
         p.start()
         time.sleep(0.1)
@@ -229,10 +236,7 @@ if __name__ == '__main__':
         process.join()
 
     # Creates a data frame with the CT_MediSpa excel file and the shared multiprocess string list
-    df = pd.read_excel("CT_MediSpas.xlsx")
+    df = pd.read_excel('ScrapedData/' + companyInfo + '-tmp1.xlsx')
     df.index = np.arange(1, len(df) + 1)
     df[''] = np.array(companyStringList)
-    df.to_excel('CT_MediSpas.xlsx', index=False)
-
-    # Calls parse_data() in DataSheetOrganizer to separate the string list into a well organized excel sheet.
-    #parse_data()
+    df.to_excel('ScrapedData/' + companyInfo + '-tmp1.xlsx', index=False)
