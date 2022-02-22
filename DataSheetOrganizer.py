@@ -2,6 +2,8 @@
 import pandas as pd
 import re
 import numpy as np
+import openpyxl
+from ObtainingLinks import get_all_links
 
 # Global variables required for comparisons outside of parse_data() method.
 domain_formatted = '^[w]{3}[.].+[.][a-zA-Z-]+'
@@ -57,11 +59,14 @@ def format_phone(phone):
 
 
 # A method that cleans and organizes data scraped from google maps.
-def parse_data():
+def parse_data(companyInfo):
+    wb = openpyxl.Workbook()
+    wb.save('ScrapedData/' + companyInfo + '-tmp2.xlsx')
+
     # Entrance message to console.
     # Placing Excel information from GMapScraper into a data frame object.
     print('Data organization started')
-    data_frame = pd.read_excel("CT_MediSpas.xlsx")
+    data_frame = pd.read_excel('ScrapedData/' + companyInfo + '-tmp1.xlsx')
 
     # A dictionary array created to hold the data being changed.
     rows_dict_list = []
@@ -72,8 +77,8 @@ def parse_data():
         # Going through 1 row at a time with all columns.
         # Joining each cell of the row into one string but separating with a '|'.
         # Replacing values with | values for easier separation later.
-        row = data_frame.loc[i, :]
-        row = '|'.join(row[row.notnull()].astype(str))
+        row = data_frame.loc[i, :][0]
+        # row = '|'.join(row[row.notnull()].astype(str))
 
         # Changing values to make it easier to separate later.
         row = (row
@@ -123,20 +128,24 @@ def parse_data():
     # Adding the updated data frame to a new data frame object.
     data_frame_new = pd.DataFrame(rows_dict_list)
 
-    # Creating Phone, Address, and Website variables.
+    # Creating Phone, Address, Website, Name and Speciality variables.
     ph = data_frame_new.Phone
     ad = data_frame_new.Address
     dm = data_frame_new.Website
+    na = data_frame_new.Name
+    # sp = data_frame_new.Speciality
 
-    # Removing any unneeded, excess data in all rows from Phone and Address columns.
+    # Removing any unneeded, excess data in all rows from Phone, Address, Website, Name and Speciality columns.
     data_frame_new.loc[:, 'Phone'] = ph[ph.notnull()].apply(split_function)
     data_frame_new.loc[:, 'Address'] = ad[ad.notnull()].apply(split_function)
+    data_frame_new.loc[:, 'Name'] = na[ad.notnull()].apply(split_function)
+    # data_frame_new.loc[:, 'Speciality'] = sp[ad.notnull()].apply(split_function)
 
     # Filter and format not null domains.
     data_frame_new['Website'] = dm[~dm.isna()].apply(format_domain)
 
     # Array created to sort websites later.
-    inv_dom_exts = ['gov', 'org', 'edu']
+    inv_dom_exts = ['gov ', 'org ', 'edu ', 'gov', 'org', 'edu']
 
     # Splitting domain name extensions and telling console how many different domain types there are.
     domain_names = data_frame_new.Website.str.rsplit(pat='.', n=1, expand=True)[[1]][1]
@@ -159,11 +168,28 @@ def parse_data():
     data_frame_new.reset_index(drop=True, inplace=True)
 
     # Removing all unnecessary data columns before saving the data frame to the excel sheet.
-    data_frame_new.drop(columns=['Health & safety', 'Plus code', 'Located in', 'Warning', 'Open now'], inplace=True)
+    try:
+        data_frame_new.drop(columns=['Health & safety', 'Plus code', 'Located in', 'Warning', 'Open now'], inplace=True)
+    except KeyError:
+        try:
+            data_frame_new.drop(columns=['Health & safety', 'Plus code', 'Located in', 'Warning', 'Open now '],
+                                inplace=True)
+        except KeyError:
+            try:
+                data_frame_new.drop(columns=['Health & safety', 'Plus code', 'Located in', 'Warning', 'col2'],
+                                    inplace=True)
+            except KeyError:
+                try:
+                    data_frame_new.drop(columns=['Health & safety', 'Plus code', 'Located in', 'Warning'],
+                                        inplace=True)
+                except KeyError:
+                    print(
+                        "Unable to remove unnecessary columns, double check line 172 in DataSheetOrganizer for columns "
+                        "removed")
 
     # Saving that new data frame to the same Excel file.
     # Exit message to console.
-    data_frame_new.to_excel('CT_MediSpas.xlsx', index=False)
+    data_frame_new.to_excel('ScrapedData/' + companyInfo + '-tmp2.xlsx', index=False)
     print('Data organization completed')
 
     # Not necessary at the moment but returning the new data frame object.
