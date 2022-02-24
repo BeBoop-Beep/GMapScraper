@@ -64,8 +64,8 @@ if __name__ == '__main__':
     logo_label.grid(columnspan=4, column=0, row=0)
 
     # Questions to user
-    instruct1 = tk.Label(window, text="What state are you wanting your search in?", font="Arial")
-    instruct1.grid(columnspan=2, column=0, row=1, sticky=tk.W)
+    instruct1 = tk.Label(window, text="Enter a State", font="Arial")
+    instruct1.grid(columnspan=2, column=0, row=1)
 
     entrybox1 = tk.Entry(window, width=20, bg="white")
     entrybox1.grid(columnspan=1, column=2, row=1, sticky=tk.W)
@@ -75,8 +75,8 @@ if __name__ == '__main__':
         column=3, row=1)
     stateInfo.set("SUBMIT")
 
-    instruct2 = tk.Label(window, text="What speciality are you searching for?", font="Arial")
-    instruct2.grid(columnspan=2, column=0, row=2, sticky=tk.W)
+    instruct2 = tk.Label(window, text="Enter a Speciality", font="Arial")
+    instruct2.grid(columnspan=2, column=0, row=2)
 
     entrybox2 = tk.Entry(window, width=20, bg="white")
     entrybox2.grid(columnspan=1, column=2, row=2, sticky=tk.W)
@@ -86,13 +86,13 @@ if __name__ == '__main__':
                                   bg="#ffae42").grid(column=3, row=2)
     specialityInfo.set("SUBMIT")
 
-    instruct3 = tk.Label(window, text="Please go in the order it is written:", font="Arial")
+    instruct3 = tk.Label(window, text="Select GO in the order it is written:", font="Arial")
     instruct3.grid(columnspan=2, column=1, row=3, sticky=tk.W)
-    instruct4 = tk.Label(window, text="1.Scrape GMaps", font="Arial")
+    instruct4 = tk.Label(window, text="1. Scrape GMaps", font="Arial")
     instruct4.grid(columnspan=1, column=1, row=4, sticky=tk.W)
-    instruct5 = tk.Label(window, text="2.Cleanse Data", font="Arial")
+    instruct5 = tk.Label(window, text="2. Cleanse Data", font="Arial")
     instruct5.grid(columnspan=1, column=1, row=5, sticky=tk.W)
-    instruct6 = tk.Label(window, text="3.Additional Links", font="Arial")
+    instruct6 = tk.Label(window, text="3. Additional Links", font="Arial")
     instruct6.grid(columnspan=1, column=1, row=6, sticky=tk.W)
 
     maps = tk.StringVar()
@@ -113,11 +113,10 @@ if __name__ == '__main__':
         column=2, row=6)
     links.set("GO")
 
-    resetter_btn = tk.Button(window, textvariable=resetter, width=12, command=lambda: resetCode(), bg="#add8e6").grid(columnspan=1, column=1, row=7)
+    resetter_btn = tk.Button(window, textvariable=resetter, width=12, command=lambda: resetCode(), bg="#add8e6").grid(columnspan=1, column=1, row=7, sticky=tk.E)
 
     resetter.set("RESET")
 
-    tk.Button(window, text="EXIT", width=12, command=exitCode, bg="#E9967A").grid(columnspan=2, column=2, row=7,
-                                                                                  sticky=tk.W)
+    tk.Button(window, text="EXIT", width=12, command=exitCode, bg="#E9967A").grid(columnspan=2, column=2, row=7)
 
     window.mainloop()
